@@ -31,10 +31,9 @@ public:
         // (p0 - (o + t d)) . n = 0   ->   t = (p0 - o) . n / (d . n)
         const vec3 direccion_rayo = r.d();
         const vec3 origen_rayo = r.o();
-        const float EPSILON = 1e-7f;
 
         const float denom = dot(n_, direccion_rayo);
-        if( abs(denom) < EPSILON ) return false;    // rayo paralelo al plano
+        if( abs(denom) < ZERO ) return false;    // rayo paralelo al plano
         const float t = dot(p0_ - origen_rayo, n_) / denom; // esto lo sacamos de despejar t de aca P(t) = o + t d
         if( t <= EPSILON ) return false; // plano detras del origen del rayo
 
