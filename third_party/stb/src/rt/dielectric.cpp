@@ -21,40 +21,30 @@ static float schlick(float cosine, float eta)
 
 int Dielectric::secondary(const Ray& in, const Hit& h, Secondary out[2]) const
 {
-    const glm::vec3 d = glm::normalize(in.d());
-
-    // η_i / η_t según el rayo entre o salga del objeto
-    const float eta = h.front_face ? (1.0f / ior) : ior;
-
-    // Rayo reflejado: siempre existe
-    out[0].ray = Ray(h.p + h.n * EPSILON, glm::reflect(d, h.n));
-
-    // Snell: sin θt = η sin θi, así que cos²θt = 1 - η² (1 - cos²θi).
-    // Si da negativo, sin θt > 1: no hay rayo refractado (reflexión interna
-    // total) y toda la luz se refleja.
-    // Una sola cuenta decide las dos cosas. Si la prueba se hace con sin θt y
-    // la dirección con glm::refract (que hace su propia cuenta), cerca del
-    // ángulo límite el redondeo puede aprobar una y no la otra: glm::refract
-    // devuelve el vector nulo, normalizarlo da NaN y el píxel sale negro
-    const float cos_i = glm::min(glm::dot(-d, h.n), 1.0f);
-    const float k = 1.0f - eta * eta * (1.0f - cos_i * cos_i);
-    if( k < 0.0f ){
-        out[0].weight = 1.0f;
-        return 1;
-    }
-    const float cos_t = glm::sqrt(k);
-
-    // Rayo refractado: T = η d + (η cos θi - cos θt) n.
-    // El origen se corre hacia el otro lado de la superficie
-    const glm::vec3 T = eta * d + (eta * cos_i - cos_t) * h.n;
-    out[1].ray = Ray(h.p - h.n * EPSILON, glm::normalize(T));
-
-    // Coseno del lado del medio menos denso (ver schlick). Mirar η en lugar de
-    // front_face cubre también los materiales con ior < 1, como la superficie
-    // interior de una esfera hueca
-    const float F = schlick((eta <= 1.0f) ? cos_i : cos_t, eta);
-
-    out[0].weight = F;
-    out[1].weight = 1.0f - F;
-    return 2;
+    // TODO (paso 9): reflexión y refracción.
+    //
+    // a) η = η_i / η_t. Si el rayo entra al objeto (h.front_face) es 1 / ior;
+    //    si sale, ior.
+    //
+    // b) Rayo reflejado, en out[0]: igual que en el espejo. Existe siempre.
+    //
+    // c) Snell: sin θt = η sin θi, de donde cos²θt = 1 - η² (1 - cos²θi),
+    //    con cos θi = -d . n (d normalizada).
+    //    Si cos²θt da negativo, no hay rayo refractado (reflexión interna
+    //    total): toda la luz va al reflejado (peso 1) y se devuelve 1.
+    //    No usar glm::refract para decidir esto: hace su propia cuenta, y
+    //    cerca del ángulo límite el redondeo puede hacer que una prueba pase y
+    //    la otra no. En ese caso glm::refract devuelve el vector nulo, al
+    //    normalizarlo da NaN y aparecen píxeles negros sueltos sobre el vidrio.
+    //
+    // d) Rayo refractado, en out[1]:  T = η d + (η cos θi - cos θt) n,
+    //    normalizado. El origen se corre hacia el otro lado de la superficie,
+    //    h.p - h.n * EPSILON.
+    //
+    // e) Pesos: F = schlick(coseno, η) para el reflejado y 1 - F para el
+    //    refractado. El coseno es cos θi si η <= 1 y cos θt si no (ver el
+    //    comentario de schlick). Se devuelve 2.
+    (void)in; (void)h; (void)out;
+    (void)schlick;
+    return 0;
 }
