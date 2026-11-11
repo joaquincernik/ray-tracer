@@ -10,17 +10,19 @@ public:
         Object(std::move(m)), p0_(point), n_(glm::normalize(normal)) {}
 
     bool intersect(const Ray& r, Hit& out) const override {
-        // (p0 - (o + t d)) . n = 0   ->   t = (p0 - o) . n / (d . n)
-        const float denom = glm::dot(n_, r.d());
-        if( glm::abs(denom) < 1e-7f ) return false;    // rayo paralelo al plano
-        const float t = glm::dot(p0_ - r.o(), n_) / denom;
-        if( t <= EPSILON ) return false;
-
-        out.t   = t;
-        out.p   = r.at(t);
-        out.mat = mat_.get();
-        out.set_face(r, n_);
-        return true;
+        // TODO (paso 1): intersección rayo-plano.
+        // Un punto P está en el plano si (P - p0) · n = 0. Reemplazar P por el
+        // rayo, P(t) = o + t d, y despejar t.
+        //   - Si d · n es (casi) cero, el rayo es paralelo al plano: no hay
+        //     intersección (hacer comparación para punto flotante: valor
+        //     absoluto con 1e-7 y no con 0.0).
+        //   - Si t <= EPSILON, el plano está detrás del origen del rayo.
+        //   - Si no, completar los datos en la intersección (Hit& out): t, el
+        //     punto P(t) (ver Ray::at), el material (mat_.get()) y la normal
+        //     con out.set_face(r, n_), que la orienta hacia el lado del que
+        //     viene el rayo.
+        (void)r; (void)out;
+        return false;
     }
 
 private:

@@ -22,12 +22,12 @@ glm::vec3 Scene::background(const Ray& r) const
 
 glm::vec3 Scene::normal_color(const Ray& r) const
 {
-    Hit h;
-    if( !find_nearest(r, h) ){
-        return background(r);
-    }
-    // De [-1,1] a [0,1], componente a componente
-    return 0.5f * (h.n + glm::vec3(1.0f));
+    // TODO (paso 3): normales como color.
+    // Buscar la intersección más cercana (find_nearest); si no hay, devolver
+    // el color del fondo. Si hay, ajustar el valor de la normal de [-1,1] a
+    // [0,1] para cada componente y devolverla como color.
+    // El resultado se puede ver con:  ./bin/rrt -n
+    return background(r);
 }
 
 LocalTerms Scene::local_terms(const Ray& r, const Hit& h) const
@@ -38,8 +38,15 @@ LocalTerms Scene::local_terms(const Ray& r, const Hit& h) const
     const glm::vec3 v = glm::normalize(-r.d());     // hacia el observador
     const glm::vec3& n = h.n;                       // ya orientada hacia v
 
-    // Ambiente: ka en el punto (un tablero lo hace variar)
-    terms.ambient = m.ka_at(h.p);
+    // TODO (paso 4): modelo de iluminación de Phong.
+    // Por defecto cada objeto sale de un color sólido tomado de la componente
+    // difusa del material (kd).
+    // Eliminar esta línea al escribir el paso 4:
+    terms.diffuse = m.kd_at(h.p);
+
+    // TODO (paso 4) Ambiente: ka en el punto (ka_at, no ka: una textura la
+    // puede hacer variar)
+    // terms.ambient = ...
 
     for( const auto& L : lights_ ){
         glm::vec3 s = L.pos() - h.p;                // hacia la luz
@@ -52,20 +59,15 @@ LocalTerms Scene::local_terms(const Ray& r, const Hit& h) const
             continue;
         }
 
-        // Difuso
-        const float k_diff = glm::max(glm::dot(n, s), 0.0f);
-
-        // Especular, Phong (sin brillo si la luz está detrás de la superficie)
-        const glm::vec3 refl = glm::reflect(-s, n);
-        const float k_spec = (k_diff > 0.0f)
-                ? glm::pow(glm::max(glm::dot(refl, v), 0.0f), m.shininess)
-                : 0.0f;
-
-        // Intensidad que llega del foco
-        const glm::vec3 Li = L.color() * (L.attenuation(dist) * visibility);
-
-        terms.diffuse  += m.kd_at(h.p) * k_diff * Li;
-        terms.specular += m.ks * k_spec * Li;
+        // TODO (paso 4), por cada luz:
+        //   - difuso:    kd_at(p) * max(n · s, 0)
+        //   - especular: ks * max(R · v, 0)^shininess, con R la dirección de s
+        //     reflejada respecto de n (glm::reflect(-s, n)). Si n · s <= 0 la
+        //     luz está detrás de la superficie y no hay brillo.
+        //   - los dos se multiplican por la intensidad que llega del foco:
+        //     L.color() * L.attenuation(dist) * visibility
+        //   - sumar en terms.diffuse y terms.specular.
+        (void)v;
     }
 
     return terms;
@@ -74,18 +76,16 @@ LocalTerms Scene::local_terms(const Ray& r, const Hit& h) const
 float Scene::light_transmission(const glm::vec3& p, const glm::vec3& n,
                                 const glm::vec3& light_pos) const
 {
-    // El origen se corre un poco hacia afuera para que el rayo de sombra no
-    // choque con la propia superficie por redondeo
-    const glm::vec3 origin = p + n * EPSILON;
-    const glm::vec3 to_light = light_pos - origin;
-    const float dist = glm::length(to_light);
-
-    // En sombra si algún objeto está entre el punto y la luz. Un objeto que
-    // está más allá de la luz no cuenta
-    Hit h;
-    if( find_nearest(Ray(origin, to_light / dist), h) && h.t < dist - EPSILON ){
-        return 0.0f;
-    }
+    // TODO (paso 5): sombras.
+    // Lanzar un rayo de sombra desde p hacia la luz. Si toca algún objeto
+    // antes de llegar a la luz, el punto está en sombra (devolver 0); si no,
+    // le llega toda la luz (devolver 1).
+    //   - Correr el origen un poco hacia afuera, p + n * EPSILON. Si no, el
+    //     rayo choca con la propia superficie por redondeo y aparecen puntos
+    //     negros sueltos (el "acné" de sombra).
+    //   - Un objeto que está más allá de la luz no hace sombra: comparar el t
+    //     de la intersección con la distancia a la luz.
+    (void)p; (void)n; (void)light_pos;
     return 1.0f;
 }
 
