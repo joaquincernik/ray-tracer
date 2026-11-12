@@ -1,11 +1,11 @@
 #include <scene.h>
 using glm::dot;
 using glm::length;
+using glm::max;
 using glm::normalize;
+using glm::pow;
 using glm::reflect;
 using glm::vec3;
-using glm::max;
-using glm::pow;
 
 bool Scene::find_nearest(const Ray &r, Hit &closest) const
 {
@@ -102,19 +102,20 @@ float Scene::light_transmission(const glm::vec3 &p, const glm::vec3 &n,
 {
     // El origen se corre un poco hacia afuera para que el rayo de sombra no
     // choque con la propia superficie por redondeo
-   /* const vec3 origin = p + n * EPSILON;
+    const vec3 origin = p + n * EPSILON;
     const vec3 to_light = light_pos - origin;
     const float dist = length(to_light);
 
-    const vec3 s_normalized = to_light / dist; // normalizamos el vector que va desde el punto de intersección hasta la luz 
+    const vec3 s_normalized = to_light / dist; // normalizamos el vector que va desde el punto de intersección hasta la luz
     // En sombra si algún objeto está entre el punto y la luz. Un objeto que
     // está más allá de la luz no cuenta
     Hit h;
+    const bool found = find_nearest(Ray(origin, s_normalized), h);
     const bool objeto_detras_foco = h.t < dist - EPSILON;
-    if (find_nearest(Ray(origin, s_normalized), h) && objeto_detras_foco)
+    if (found && objeto_detras_foco)
     {
         return 0.0f;
-    }*/
+    }
     return 1.0f;
 }
 
