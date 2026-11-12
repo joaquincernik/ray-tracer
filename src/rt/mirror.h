@@ -12,16 +12,11 @@ public:
     float kr = 0.8f;
 
     int secondary(const Ray& in, const Hit& h, Secondary out[2]) const override {
-        // TODO (paso 8): rayo reflejado.
-        // Escribir en out[0] el rayo reflejado y su peso, y devolver 1.
-        //   - Dirección: la del rayo incidente (normalizada) reflejada
-        //     respecto de la normal, con glm::reflect.
-        //   - Origen: el punto de intersección corrido un poco hacia el lado
-        //     de la normal, h.p + h.n * EPSILON, por la misma razón que en el
-        //     rayo de sombra.
-        //   - Peso: kr.
-        (void)in; (void)h; (void)out;
-        return 0;
+        // El origen se corre un poco hacia afuera para no chocar con la propia
+        // superficie por redondeo
+        out[0].ray    = Ray(h.p + h.n * EPSILON, glm::reflect(glm::normalize(in.d()), h.n));
+        out[0].weight = kr;
+        return 1;
     }
 };
 
