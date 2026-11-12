@@ -31,14 +31,7 @@ glm::vec3 Scene::background(const Ray &r) const
 
 glm::vec3 Scene::normal_color(const Ray &r) const
 {
-    // TODO (paso 3): normales como color.
-    // Buscar la intersección más cercana (find_nearest); si no hay, devolver
-    // el color del fondo. Si hay, ajustar el valor de la normal de [-1,1] a
-    // [0,1] para cada componente y devolverla como color.
-    // El resultado se puede ver con:  ./bin/rrt -n
-
     Hit h; // instanciamos un rayo con t en el infinito
-
     if (!find_nearest(r, h))
     { // me devuelve el objeto mas cercano al rayo, si no hay intersección devuelve false
         return background(r);
@@ -116,17 +109,17 @@ float Scene::light_transmission(const glm::vec3 &p, const glm::vec3 &n,
         // está más allá de la luz no cuenta
         Hit h;
         const bool found = find_nearest(Ray(origin, s_normalized), h);
-        const bool objeto_detras_foco = h.t < dist - EPSILON;
+        const bool objeto_detras_foco = h.t >= dist - EPSILON; // si el objeto está detrás de la luz, no cuenta
         if (!found || objeto_detras_foco)
         {
             return transmission;
         }
-        transmission *= h.mat->shadow_transmission();
-        if (transmission <= 0.0f)
+        transmission *= h.mat->shadow_transmission(); // si deja pasar algo de luz
+        if (transmission <= 0.0f) // sigue hasta que choca con algo opaco
         {
             return 0.0f;
         }
-        origin = h.p + s_normalized * EPSILON;
+        origin = h.p + s_normalized * EPSILON; // el rayo sale ahora de dentro de la esfera, es el rayo defractado
     }
     return transmission;
 }
