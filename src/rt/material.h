@@ -69,4 +69,6 @@ public:
 
 /// Difuso: Phong completo, sin rayos secundarios. Es el comportamiento de la
 /// clase base; la clase existe para que la escena diga qué material usa
+class Diffuse : public Material
+{};
 #endif // MATERIAL_H

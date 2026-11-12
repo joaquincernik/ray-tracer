@@ -1,86 +1,114 @@
-# Trazador de rayos: esqueleto del taller de iluminación local
+# Trazador de rayos: paquete del taller de iluminación global
 
-Estructura para construir un generador de imagenes usando un trazador de rayos
-(*ray tracer*). EL programa lanza un rayo por cada píxel para determinar el color
-del mismo y, como la escena está vacía, todos los rayos terminan en el fondo celeste. El programa compila y escribe esta imagen base. Durante el taller se
-amplía el trazador en seis pasos agregando distintas funcionalidades: objetos, 
-iluminación y texturas.
+Archivos que hay que agregar al proyecto del taller de iluminación local para
+ampliar el trazador con reflexión, refracción y trazado recursivo de rayos, que
+permiten generar la imagen final *Spheres and Checkerboard* de Whitted (escena
+11). Estos archivos no son un proyecto nuevo: hay que agregarlos / sobreescribir
+sobre el proyecto del taller de iluminación local.
 
-## Requisitos y compilación
+El punto de partida es el proyecto del taller 1 de iluminación local con los
+seis pasos funcionando (`./bin/rrt` escribe el tablero con las dos esferas y
+sus sombras). Si alguno está sin terminar se puede completar usando el archivo
+de la solución que se publicó para ese taller.
 
-Se usa el mismo entorno que en el resto de la materia: `g++`, `make` y GLM (en
-Windows, la terminal MinGW64 de MSYS2). No hace falta GLFW ni OpenGL, porque
-el programa no abre ninguna ventana. La salida de las imágenes se hace en 
-formato PNG por lo que se incluye `stb_image_write` en la carpeta `third_party/`
-para escribir las mismas.
+## Cómo aplicar el paquete
 
-```sh
-make                 # compila bin/rrt
-./bin/rrt            # renderiza la escena 0 y escribe escena-00.png
-./bin/rrt -n         # vista de normales (paso 3): escena-00-normales.png
-./bin/rrt -l         # lista las escenas disponibles
+Copiar la carpeta `src/` del paquete encima de la `src/` del proyecto. Se van a
+presentar dos situaciones frente a los archivos que se están combinando:
+
+**Archivos que se reemplazan.** En el taller de iluminación local no tenían
+nada para completar, así que reemplazarlos no borra trabajo propio. Si alguno
+se modificó, hay que copiar a mano sólo las partes nuevas.
+
+| Archivo | Qué agrega |
+|---|---|
+| `src/rt/material.h` | El rayo secundario con su peso (`Secondary`) y dos métodos con su versión por defecto, la del material difuso y opaco: `secondary()` (no genera rayos) y `shadow_transmission()` (hace sombra plena) |
+| `src/rt/scene.h` | La profundidad de recursión: el parámetro `depth` de `trace` y el tope `set_max_depth()` (8 por defecto) |
+| `src/escenas/escenas.h`, `escenas.cpp` | La escena 11 en la tabla de escenas |
+
+**Archivos nuevos.**
+
+| Archivo | Contenido |
+|---|---|
+| `src/rt/triangle.h` | Intersección rayo-triángulo. Se necesita para el piso de la escena 11 que es un rectángulo finito armado con dos triángulos |
+| `src/rt/mirror.h` | Material tipo especular con un espacio para completar (paso 8) |
+| `src/rt/dielectric.h`, `dielectric.cpp` | Material dieléctrico (vidrio), con un espacio para completar (paso 9). Incluye la aproximación de Schlick, lista para usar |
+| `src/escenas/e11-whitted.cpp` | El modelo completo de la escena 11 *Spheres and Checkerboard* de Whitted |
+
+Después de copiar, `make clean && make` da este error:
+
+```
+error: no declaration matches 'glm::vec3 Scene::trace(const Ray&) const'
 ```
 
-**Otras opciones:** `-o archivo.png` para elegir el nombre de la salida, `-r W H`
-para cambiar la resolución (por defecto 800 x 600 [píxeles]) y `-ss N` para usar
-supermuestreo, es decir, cada pixel de la imagen se genera a partir de N x N
-rayos dentro del pixel promediados (por defecto 1: sin sobre muestreo). Con
-`-ss 3 -r 1280 720` se obtiene una imagen de mayor calidad pero que demora mucho
-más tiempo en generarse, sirve para obtener la imagen final luego de haber hecho
-los ajustes de la escena o el agregado de una nueva funcionalidad.
+Es lo esperado que suceda porque ahora `scene.h` declara el método `trace` con 
+la profundidad de recursión y la definición en `scene.cpp` no la tiene. Se 
+resuelve en el paso 7.
 
-**Optimización:** paralelización de la generación de la imagen. El trazador 
-reparte las filas de la imagen entre los núcleos del procesador usando OpenMP
-(directiva de preprocesador `#pragma omp parallel for schedule(dynamic, 1)` en
-`main.cpp` y opción de compilación `-fopenmp` en el `Makefile`).
+## Actividades para el taller: cuatro pasos
 
-## Organización del código
+La numeración continúa la del taller de iluminación local. Los pasos 8 y 9 están
+marcados en el código con `TODO (paso N)`. Los pasos 7 y 10 no tienen marca porque
+hay que escribirlos en la versión que ya existe de `scene.cpp` y por eso no
+vienen en el paquete: más abajo se describen los cambios para estos pasos.
 
-Se usa una organización modular que separa la geometría, los materiales y la
-escena, de modo que agregar un objeto o un material nuevo no obligue a tocar el
-resto.
-
-| Carpeta / archivo | Contenido |
-|---|---|
-| `src/main.cpp` | App principal. Opciones, recorrido de los píxeles, supermuestreo y escritura de la imagen |
-| `src/rt/ray.h`, `camera.h` | Modelo del rayo P(t) = o + t d y de la cámara que genera un rayo por píxel |
-| `src/rt/object.h`, `plane.h`, `sphere.h` | Clase base para la geometría y dos especializaciones: planos y esferas |
-| `src/rt/hit.h` | Datos en la intersección de un rayo con una geometría: t, punto, normal y material |
-| `src/rt/material.h`, `checker.h` | Clase base de los materiales (modelo de Phong) y una especialización para una textura tipo tablero |
-| `src/rt/light.h` | Modelo de luz puntual con atenuación opcional con la distancia |
-| `src/rt/scene.h`, `scene.cpp` | La escena: objetos, luces, fondo y el procedimiento de trazado de rayos |
-| `src/rt/image.h`, `image.cpp` | Imagen con salidad a archivos PNG y corrección gamma |
-| `src/escenas/` | Directorio del módulo de soporte para poder generar distintas escenas por código: una función por escena y tabla que lleva el conteo de escenas disponibles |
-
-## Actividades para el taller: seis pasos
-
-Cada actividad a desarrollar está marcada en el código con un comentario 
-`TODO (paso N)` con una breve explicación qué indica que hay que modificar /
-agregar para completar la actividad.
-
-| Paso | Dónde | Cuál es el resultado |
+| Paso | Dónde | Qué se ve en la escena 11 al terminarlo |
 |---|---|---|
-| 1. Intersección rayo-plano | `Plane::intersect` (`plane.h`) | La mitad inferior de la imagen pasa a ser el piso, de un color sólido (ej. rojo) |
-| 2. Intersección rayo-esfera | `Sphere::intersect` (`sphere.h`) | Aparecen dos discos planos de distinto color, ej. uno blanco y otro azul, sin volumen |
-| 3. Normales como color | `Scene::normal_color` (`scene.cpp`) | Ejecutando con la opción `-n` se observa: el piso cambia a verde y las esferas con un degradé de colores que cambia con la orientación de la superficie |
-| 4. Modelo de iluminación de Phong | `Scene::local_terms` (`scene.cpp`) | Las esferas toman volumen y brillo y el piso se oscurece hacia el fondo |
-| 5. Sombras | `Scene::light_transmission` (`scene.cpp`) | Las esferas proyectan sombra sobre el piso, y la que está en primer plano (ej. blanca), sobre la otra (ej. azul) |
-| 6. Textura de tablero | `Checker::odd` (`checker.h`) | El piso pasa a ser un tablero rojo y amarillo |
+| 7. Trazado recursivo | `Scene::trace` (`scene.cpp`) | Compila otra vez. La esfera de adelante sale negra con un brillo, la de atrás gris mate y las dos hacen sombra plena. La escena 0 no cambia |
+| 8. Espejo | `Mirror::secondary` (`mirror.h`) | La esfera de atrás refleja el piso, el cielo y la esfera negra |
+| 9. Vidrio | `Dielectric::secondary` (`dielectric.cpp`) | A través de la esfera de adelante se ve lo que está detrás, invertido y deformado, y en el borde se refleja el entorno |
+| 10. Sombra a través del vidrio | `Scene::light_transmission` (`scene.cpp`) | La sombra de la esfera de vidrio se aclara |
 
-Hasta el paso 4, para el color de cada objeto se toma el coeficiente difuso (lo
-que genera un color sólido sobre el objeto), así se pueden verificar que las 
-intersecciones sean correctas antes de escribir la iluminación.
+### Paso 7: trazado recursivo
 
-## Agregar una escena
+El modelo de Whitted suma a la iluminación local la luz que traen los rayos
+secundarios, cada uno con su peso:
 
-Cada escena es una función `build_scene_NN(Scene&, Camera&)` que arma la
-geometría, los materiales, las luces y la cámara y devuelve por referencia todo
-esto en `Scene&` y `Camera&`. Para agregar una escena nueva hay que:
+    I = I_local + suma de (peso_i * I(rayo_i))
 
-1. Escribirla en un archivo nuevo en `src/escenas/`, tomando como modelo
-   `e00-taller1.cpp`.
-2. Declararla en `escenas.h` y sumarla a la tabla de `escenas.cpp`.
-3. Compilar y renderizarla con `./bin/rrt NN`.
+y cada I(rayo_i) se calcula usando de nuevo `trace` y ahí es donde aparece la
+recursión. En `scene.cpp` hay que:
 
-El `Makefile` compila solo cualquier `.cpp` nuevo de `src/rt/` o de
-`src/escenas/` por lo que no hay que hacer nada más.
+1. Agregar el parámetro a la definición:
+   `glm::vec3 Scene::trace(const Ray& r, unsigned int depth) const`
+   (el valor por defecto, 0, va sólo en `scene.h`).
+2. Al principio de `trace`, si el parámetro `depth` supera `max_depth_`, 
+   devolver color negro: la rama del árbol de rayos termina y no aporta luz.
+3. Después de la iluminación local, pedirle al material sus rayos
+   secundarios (`h.mat->secondary(r, h, sec)`, con `Secondary sec[2]`, que
+   devuelve cuántos escribió) y sumar al color, el color que trae cada uno
+   multiplicado por su peso: `trace(sec[i].ray, depth + 1)`.
+
+No hace falta recortar el color a [0,1] dentro de la recursión porque `main` lo
+recorta al final, en cada muestra del píxel.
+
+Con el material difuso no cambia nada, porque no genera rayos secundarios. La
+recursión se ve recién con el espejo (paso 8).
+
+### Paso 10: sombra a través del vidrio
+
+Hasta acá `light_transmission` devuelve 0 cuando el rayo de sombra toca cualquier
+objeto. Al agregar el material dieléctrico (vidrio) en la escena, la sombra 
+plena que genera es incorrecta y se puede mejorar porque un dieléctrico puede 
+dejar pasar parte de la luz.
+
+La forma propuesta es que el rayo de sombra siga de largo. Cada vez que toca
+una superficie, la fracción de luz que llega se multiplica por la que deja
+pasar esa superficie (`h.mat->shadow_transmission()`: 0 para un material opaco,
+el valor de `transparency` para los dieléctricos) y el rayo vuelve a salir un poco
+más allá del punto de intersección (`h.p + s * EPSILON`, con `s` la dirección 
+hacia la luz). El recorrido de este rayo termina al llegar a la luz o cuando la
+fracción llega a 0. Conviene ponerle un tope de cruces (16, por ejemplo) por si
+el rayo queda atrapado dentro de un objeto.
+
+En una esfera de vidrio son dos cruces (entrada y salida) y en la esfera de la
+escena de Whitted, como es hueca, son cuatro cruces.
+
+## La esfera hueca de la escena 11
+
+La esfera de vidrio de Whitted es hueca. En la escena se arma con dos esferas
+concéntricas: la exterior con índice 1,5 (de aire a vidrio) y la interior,
+de radio 0,96 veces el exterior, con índice 1/1,5, porque del lado de adentro
+de esa superficie hay aire rodeado de vidrio. La superficie interior no tiene
+brillo de Phong porque la luz le llega refractada por la cáscara y haría 
+aparecer brillo en un lugar equivocado que no concuerda con la física.

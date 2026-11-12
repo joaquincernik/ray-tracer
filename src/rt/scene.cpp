@@ -100,34 +100,63 @@ LocalTerms Scene::local_terms(const Ray &r, const Hit &h) const
 float Scene::light_transmission(const glm::vec3 &p, const glm::vec3 &n,
                                 const glm::vec3 &light_pos) const
 {
-    // El origen se corre un poco hacia afuera para que el rayo de sombra no
-    // choque con la propia superficie por redondeo
-    const vec3 origin = p + n * EPSILON;
-    const vec3 to_light = light_pos - origin;
-    const float dist = length(to_light);
+    constexpr int kMaxCrossings = 16;
+    vec3 origin = p + n * EPSILON;
+    float transmission = 1.0f;
 
-    const vec3 s_normalized = to_light / dist; // normalizamos el vector que va desde el punto de intersección hasta la luz
-    // En sombra si algún objeto está entre el punto y la luz. Un objeto que
-    // está más allá de la luz no cuenta
-    Hit h;
-    const bool found = find_nearest(Ray(origin, s_normalized), h);
-    const bool objeto_detras_foco = h.t < dist - EPSILON;
-    if (found && objeto_detras_foco)
+    // El rayo de sombra avanza hacia la luz; cada superficie que cruza deja
+    // pasar shadow_transmission() de la luz (0 si es opaca)
+    for (int i = 0; i < kMaxCrossings; ++i)
     {
-        return 0.0f;
+        const vec3 to_light = light_pos - origin;
+        const float dist = length(to_light);
+
+        const vec3 s_normalized = to_light / dist; // normalizamos el vector que va desde el punto de intersección hasta la luz
+        // En sombra si algún objeto está entre el punto y la luz. Un objeto que
+        // está más allá de la luz no cuenta
+        Hit h;
+        const bool found = find_nearest(Ray(origin, s_normalized), h);
+        const bool objeto_detras_foco = h.t < dist - EPSILON;
+        if (!found || objeto_detras_foco)
+        {
+            return transmission;
+        }
+        transmission *= h.mat->shadow_transmission();
+        if (transmission <= 0.0f)
+        {
+            return 0.0f;
+        }
+        origin = h.p + s_normalized * EPSILON;
     }
-    return 1.0f;
+    return transmission;
 }
 
 glm::vec3 Scene::trace(const Ray &r, unsigned int depth) const
 {
+     // Rama truncada: no aporta luz
+    if( depth > max_depth_ ){
+        return glm::vec3(0.0f);
+    }
+
     Hit h;
-    if (!find_nearest(r, h))
-    {
+    if( !find_nearest(r, h) ){
         return background(r);
     }
+    const Material& m = *h.mat;
+
+    // I = I_local + suma de (peso_i * I(rayo_i))
+    //
     // La escena calcula los términos de Phong con sombras (local_terms) y el
     // material elige cuáles usa. La llamada es virtual: trace no necesita
     // saber qué material tiene el objeto
-    return h.mat->local(*this, r, h);
+    glm::vec3 color = m.local(*this, r, h);
+
+    Secondary sec[2];
+    const int count = m.secondary(r, h, sec);
+    for( int i = 0; i < count; ++i ){
+        color += sec[i].weight * trace(sec[i].ray, depth + 1U);
+    }
+
+    // Sin recortar a [0,1]: el recorte va al final, en el píxel
+    return color;
 }

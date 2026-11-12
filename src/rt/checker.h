@@ -2,7 +2,6 @@
 #define CHECKER_H
 
 #include <cmath>
-
 #include <material.h>
 using std::floor;
 
