@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include <material.h>
+using std::floor;
 
 /// Difuso con tablero de ajedrez en el plano xz: las casillas "impares" cambian
 /// los coeficientes ambiental y difuso para poder alternar los colores del
@@ -21,17 +22,17 @@ public:
 private:
     /// True si p cae en una casilla impar
     bool odd(const glm::vec3& p) const {
-        // TODO (paso 6): textura tipo tablero.
-        // Dividir x y z por el largo del lado de cada casilla y quedarse con la
-        // parte entera con std::floor, no hacer un cast a int: el cast trunca
-        // hacia cero y la fila de casillas que rodea al eje queda del doble
-        // de ancho. La casilla es impar si la suma de los dos enteros es
-        // impar.
-        // Usar sólo las componentes x y z: al usar y también y si el objeto es
-        // un plano horizontal en y = 0, la función floor(y) salta entre -1 y 0
-        // por el redondeo y no sale el patrón de tablero.
-        (void)p;
-        return false;
+
+        // floor y no un cast a int, que trunca hacia cero. Sólo x y z: en el
+        // plano y = 0, floor(y) salta entre -1 y 0 por el redondeo
+        float scaled_x = p.x / size;
+        float scaled_z = p.z / size;
+
+        const int ix = int(floor(scaled_x));
+        const int iz = int(floor(scaled_z));
+
+        bool impar =  ((ix + iz) & 1) != 0;
+        return impar; // lo mismo que (ix + iz) % 2 != 0, pero más rápido
     }
 };
 
