@@ -1,12 +1,21 @@
 #include <scene.h>
+using glm::dot;
+using glm::length;
+using glm::normalize;
+using glm::reflect;
+using glm::vec3;
+using glm::max;
+using glm::pow;
 
-bool Scene::find_nearest(const Ray& r, Hit& closest) const
+bool Scene::find_nearest(const Ray &r, Hit &closest) const
 {
     bool any = false;
     Hit current;
 
-    for( const auto& obj : objects_ ){
-        if( obj->intersect(r, current) && current.t < closest.t ){
+    for (const auto &obj : objects_)
+    {
+        if (obj->intersect(r, current) && current.t < closest.t)
+        {
             closest = current;
             any = true;
         }
@@ -14,85 +23,106 @@ bool Scene::find_nearest(const Ray& r, Hit& closest) const
     return any;
 }
 
-glm::vec3 Scene::background(const Ray& r) const
+glm::vec3 Scene::background(const Ray &r) const
 {
     const float up = glm::max(glm::normalize(r.d()).y, 0.0f);
     return glm::mix(bg_horizon_, bg_zenith_, up);
 }
 
-glm::vec3 Scene::normal_color(const Ray& r) const
+glm::vec3 Scene::normal_color(const Ray &r) const
 {
     // TODO (paso 3): normales como color.
     // Buscar la intersección más cercana (find_nearest); si no hay, devolver
     // el color del fondo. Si hay, ajustar el valor de la normal de [-1,1] a
     // [0,1] para cada componente y devolverla como color.
     // El resultado se puede ver con:  ./bin/rrt -n
-    return background(r);
+
+    Hit h; // instanciamos un rayo con t en el infinito
+
+    if (!find_nearest(r, h))
+    { // me devuelve el objeto mas cercano al rayo, si no hay intersección devuelve false
+        return background(r);
+    }
+    // De [-1,1] a [0,1], componente a componente
+    return 0.5f * (h.n + glm::vec3(1.0f));
 }
 
-LocalTerms Scene::local_terms(const Ray& r, const Hit& h) const
+LocalTerms Scene::local_terms(const Ray &r, const Hit &h) const
 {
     LocalTerms terms;
-    const Material& m = *h.mat;
+    const Material &m = *h.mat;
 
-    const glm::vec3 v = glm::normalize(-r.d());     // hacia el observador
-    const glm::vec3& n = h.n;                       // ya orientada hacia v
+    const glm::vec3 v = glm::normalize(-r.d()); // hacia el observador
+    const glm::vec3 &n = h.n;                   // ya orientada hacia v
 
-    // TODO (paso 4): modelo de iluminación de Phong.
-    // Por defecto cada objeto sale de un color sólido tomado de la componente
-    // difusa del material (kd).
-    // Eliminar esta línea al escribir el paso 4:
-    terms.diffuse = m.kd_at(h.p);
+    const vec3 punto_interseccion = h.p; // punto de intersección
 
-    // TODO (paso 4) Ambiente: ka en el punto (ka_at, no ka: una textura la
-    // puede hacer variar)
-    // terms.ambient = ...
+    terms.ambient = m.ka_at(punto_interseccion);
 
-    for( const auto& L : lights_ ){
-        glm::vec3 s = L.pos() - h.p;                // hacia la luz
-        const float dist = glm::length(s);
-        s /= dist;
+    for (const auto &L : lights_)
+    {
+        const vec3 punto_fuente = L.pos();          // posición de la fuente
+        vec3 s = punto_fuente - punto_interseccion; // hacia la luz
+        const float dist = length(s);
+        s /= dist; // normalizzamos elegantemente el vector s para que tenga longitud 1
 
         // Sombra: ¿qué fracción de la luz llega hasta el punto? (paso 5)
-        const float visibility = light_transmission(h.p, n, L.pos());
-        if( visibility <= 0.0f ){
+        const float visibility = light_transmission(punto_interseccion, n, punto_fuente);
+        if (visibility <= 0.0f)
+        {
             continue;
         }
 
-        // TODO (paso 4), por cada luz:
-        //   - difuso:    kd_at(p) * max(n · s, 0)
-        //   - especular: ks * max(R · v, 0)^shininess, con R la dirección de s
-        //     reflejada respecto de n (glm::reflect(-s, n)). Si n · s <= 0 la
-        //     luz está detrás de la superficie y no hay brillo.
-        //   - los dos se multiplican por la intensidad que llega del foco:
-        //     L.color() * L.attenuation(dist) * visibility
-        //   - sumar en terms.diffuse y terms.specular.
-        (void)v;
+        // Difuso
+        const float n_dot_s = max(dot(n, s), 0.0f); // al ser normales el producto punto equivale a hacer el coseno del ángulo entre ambos vectores, si es negativo significa que la luz está detrás de la superficie y no hay difuso
+        // si se encuentra en el rango de 0 a 1, significa que la luz está delante de la superficie y hay difuso
+
+        // Especular, Phong (sin brillo si la luz está detrás de la superficie)
+        float k_spec = 0.0f;
+        if (n_dot_s > 0.0f)
+        {
+            const vec3 refl = reflect(-s, n); // la lrey de reflexion esa que aparece un 2, direccion negativa de s ya que va hacia la luz, y n es la normal de la superficie
+            const float ns = m.shininess;
+            const float v_dot_r = max(dot(refl, v), 0.0f);
+            k_spec = pow(v_dot_r, ns);
+        }
+
+        // Intensidad que llega del foco
+        const vec3 Li = L.color() * (L.attenuation(dist) * visibility);
+
+        terms.diffuse += m.kd_at(h.p) * n_dot_s * Li;
+        terms.specular += m.ks * k_spec * Li;
     }
 
     return terms;
 }
 
-float Scene::light_transmission(const glm::vec3& p, const glm::vec3& n,
-                                const glm::vec3& light_pos) const
+float Scene::light_transmission(const glm::vec3 &p, const glm::vec3 &n,
+                                const glm::vec3 &light_pos) const
 {
-    // TODO (paso 5): sombras.
-    // Lanzar un rayo de sombra desde p hacia la luz. Si toca algún objeto
-    // antes de llegar a la luz, el punto está en sombra (devolver 0); si no,
-    // le llega toda la luz (devolver 1).
-    //   - Correr el origen un poco hacia afuera, p + n * EPSILON. Si no, el
-    //     rayo choca con la propia superficie por redondeo y aparecen puntos
-    //     negros sueltos (el "acné" de sombra).
-    //   - Un objeto que está más allá de la luz no hace sombra: comparar el t
-    //     de la intersección con la distancia a la luz.
-    (void)p; (void)n; (void)light_pos;
+    // El origen se corre un poco hacia afuera para que el rayo de sombra no
+    // choque con la propia superficie por redondeo
+   /* const vec3 origin = p + n * EPSILON;
+    const vec3 to_light = light_pos - origin;
+    const float dist = length(to_light);
+
+    const vec3 s_normalized = to_light / dist; // normalizamos el vector que va desde el punto de intersección hasta la luz 
+    // En sombra si algún objeto está entre el punto y la luz. Un objeto que
+    // está más allá de la luz no cuenta
+    Hit h;
+    const bool objeto_detras_foco = h.t < dist - EPSILON;
+    if (find_nearest(Ray(origin, s_normalized), h) && objeto_detras_foco)
+    {
+        return 0.0f;
+    }*/
     return 1.0f;
 }
 
-glm::vec3 Scene::trace(const Ray& r) const
+glm::vec3 Scene::trace(const Ray &r) const
 {
     Hit h;
-    if( !find_nearest(r, h) ){
+    if (!find_nearest(r, h))
+    {
         return background(r);
     }
     // La escena calcula los términos de Phong con sombras (local_terms) y el

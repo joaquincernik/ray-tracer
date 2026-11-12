@@ -13,6 +13,19 @@ class Sphere : public Object
 public:
     Sphere(const glm::vec3 &center, float radius, std::shared_ptr<Material> m) : Object(std::move(m)), c_(center), r_(radius) {}
 
+    // Función auxiliar para resolver la ecuación cuadrática (Báscara)
+    inline bool resolver_cuadratica(float a, float b, float cc, float &t0, float &t1) const
+    {
+        const float disc = b * b - 4.0f * a * cc;
+        if (disc < 0.0f)
+            return false;
+
+        const float sq = glm::sqrt(disc);
+        t0 = (-b - sq) / (2.0f * a);
+        t1 = (-b + sq) / (2.0f * a);
+        return true;
+    }
+
     bool intersect(const Ray &r, Hit &out) const override
     {
         // TODO (paso 2): intersección rayo-esfera.
@@ -46,30 +59,17 @@ public:
 
         // La raíz más chica que esté delante del origen
         const float t = (t0 > EPSILON) ? t0 : ((t1 > EPSILON) ? t1 : INF);
-        
+
         // t0 > EPSILON: la primera raíz es la intersección que se ve desde fuera de la esfera
         // t1 > EPSILON: ESTAMOS DENTRO DE LA ESFERA
         if (t == INF) // ninguna raíz es mayor que EPSILON, la esfera está detrás
             return false;
 
-        const vec3 normal_esfera = normalize(out.p - c_) //rayo que va desde el centro de la esfera hasta el punto de intersección 
         out.t = t;
         out.p = r.at(t);
+        const vec3 normal_esfera = normalize(out.p - c_); // rayo que va desde el centro de la esfera hasta el punto de intersección
         out.mat = mat_.get();
         out.set_face(r, normal_esfera);
-        return true;
-    }
-
-    // Función auxiliar para resolver la ecuación cuadrática (Báscara)
-    inline bool resolver_cuadratica(float a, float b, float cc, float &t0, float &t1)
-    {
-        const float disc = b * b - 4.0f * a * cc;
-        if (disc < 0.0f)
-            return false;
-
-        const float sq = glm::sqrt(disc);
-        t0 = (-b - sq) / (2.0f * a);
-        t1 = (-b + sq) / (2.0f * a);
         return true;
     }
 
