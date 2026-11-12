@@ -15,6 +15,7 @@ struct SceneEntry {
 
 /// Una función por escena, cada una en su propio .cpp de esta carpeta
 void build_scene_00(Scene& scene, Camera& camera);
+void build_scene_01(Scene& scene, Camera& camera);
 void build_scene_11(Scene& scene, Camera& camera);
 
 /// Tabla de escenas disponibles (escenas.cpp). Para agregar una: escribir su
