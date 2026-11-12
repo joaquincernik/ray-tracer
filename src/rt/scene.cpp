@@ -119,7 +119,7 @@ float Scene::light_transmission(const glm::vec3 &p, const glm::vec3 &n,
     return 1.0f;
 }
 
-glm::vec3 Scene::trace(const Ray &r) const
+glm::vec3 Scene::trace(const Ray &r, unsigned int depth) const
 {
     Hit h;
     if (!find_nearest(r, h))
