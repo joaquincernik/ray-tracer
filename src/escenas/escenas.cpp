@@ -5,6 +5,8 @@ const SceneEntry kScenes[] = {
     {11, "Spheres and Checkerboard (Whitted, 1980)", build_scene_11},
     { 1, "Luces y sombras de colores", build_scene_01 },
     { 2, "Espejos paralelos", build_scene_02 },
+    { 3, "Espejos en un pasillo", build_scene_03 },
+
 
 };
 
